@@ -1,0 +1,37 @@
+# --- Python Setup ---
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.env
+mediagent_env/
+
+# --- IDE Settings (Fixes the .idea workspace warning) ---
+.idea/
+.vscode/
+
+# --- Streamlit ---
+.streamlit/
+
+# --- Project Specific (CRITICAL) ---
+# 1. Ignore the local database (it's large and regeneratable)
+storage/
+*.faiss
+*.pkl
+
+# 2. Ignore uploaded documents (Privacy & Copyright)
+*.pdf
+
+# 3. Ignore temp files created during processing
+temp_*
+_*
+
+# --- OS Junk ---
+.DS_Store
+Thumbs.db
+
+# --- Media & Binary Safety ---
+*.mp4
+*.dll
+*.exe
