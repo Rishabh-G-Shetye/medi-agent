@@ -93,21 +93,40 @@ with st.sidebar:
 
 # --- Helper: UI Components ---
 def display_source_cards(context_text):
-    """Renders interactive source citations."""
+    """
+    Renders clean, unique source citations.
+    Limits display to top 3 unique sources to prevent clutter.
+    """
+    # Regex to extract source and page metadata from the raw context string
     pattern = r"\[Source: '(.*?)', Page: (\d+)\]"
-    parts = re.split(pattern, context_text)
+    matches = re.findall(pattern, context_text)
 
-    if len(parts) < 2: return
+    if not matches:
+        return
 
-    for i in range(1, len(parts), 3):
-        if i + 2 < len(parts):
-            filename = parts[i]
-            page_num = parts[i + 1]
-            content = parts[i + 2].strip()
+    # Set to track unique sources we've already displayed
+    unique_sources = set()
+    count = 0
 
-            with st.expander(f"📄 Evidence: {filename} (Page {page_num})"):
-                st.markdown("**Context Used:**")
-                st.caption(content)
+    st.markdown("### 🔍 Source Verification (Top Matches)")
+
+    # Create columns for a cleaner layout
+    cols = st.columns(3)
+
+    for filename, page_num in matches:
+        # Create a unique identifier key
+        identifier = f"{filename} (Page {page_num})"
+
+        # Only display if unique and we haven't hit the limit of 3
+        if identifier not in unique_sources and count < 3:
+            with cols[count]:
+                st.info(f"**📄 {filename}**\n\n*Page {page_num}*")
+
+            unique_sources.add(identifier)
+            count += 1
+
+    if count == 0:
+        st.caption("No specific metadata found in context.")
 
 
 # --- 3. Chat Interface ---
@@ -128,11 +147,13 @@ if prompt := st.chat_input("Ask a clinical question (e.g., 'Treatment for P. viv
             response = "⚠️ Please upload a PDF or Load a Saved Database first."
         else:
             with st.spinner("Thinking..."):
+                # Search the vector database
                 context = st.session_state.rag_engine.search(prompt)
 
                 if not context:
                     response = "No relevant information found in the documents."
                 else:
+                    # Generate Answer
                     response = st.session_state.llm_client.generate_response(
                         context=context,
                         query=prompt,
@@ -141,9 +162,9 @@ if prompt := st.chat_input("Ask a clinical question (e.g., 'Treatment for P. viv
 
                 st.markdown(response)
 
+                # Display Cleaned Sources
                 if context:
                     st.divider()
-                    st.markdown("### 🔍 Source Verification")
                     display_source_cards(context)
 
     st.session_state.messages.append({"role": "assistant", "content": response})
