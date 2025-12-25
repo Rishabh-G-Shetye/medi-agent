@@ -42,8 +42,9 @@ class ClinicalKnowledgeBase:
                     page_text = page.extract_text() or ""
                     page_num = i + 1
 
-                    # Sliding Window Chunking (Prevents data loss)
-                    text_segments = self._sliding_window_chunking(page_text)
+                    # UPDATED: Optimized window for medical tables
+                    # 1000 chars size, 300 overlap ensures tables aren't cut in half
+                    text_segments = self._sliding_window_chunking(page_text, window_size=1000, overlap=300)
 
                     for segment in text_segments:
                         new_chunks_data.append({
@@ -55,7 +56,8 @@ class ClinicalKnowledgeBase:
                 print(f"Error reading {filename}: {e}")
 
         if not new_chunks_data:
-            return "No relevant clinical text found in documents."
+            print("No relevant clinical text found in documents.")
+            return
 
         # Embed and Build Index
         print(f"Embedding {len(new_chunks_data)} chunks with metadata...")
@@ -74,8 +76,13 @@ class ClinicalKnowledgeBase:
         print("✅ Knowledge Base Built Successfully.")
 
     # --- Core Logic: Retrieval ---
-    def search(self, query: str) -> str:
-        """Retrieves chunks and formats them with source citation metadata."""
+    def search(self, query: str, top_k: int = 15) -> str:
+        """
+        Retrieves chunks and formats them with source citation metadata.
+        Args:
+            query: The user's question.
+            top_k: Number of chunks to retrieve. INCREASED to 15 to catch details deep in text.
+        """
         if not self.index:
             return ""
 
@@ -84,12 +91,15 @@ class ClinicalKnowledgeBase:
 
         # Vector Search
         query_vec = self.encoder.encode([query]).astype("float32")
-        distances, indices = self.index.search(query_vec, k=Config.RETRIEVAL_K)
+
+        # FIX: Ensure we don't request more neighbors than we have chunks
+        k_to_search = min(top_k, len(self.chunks))
+        distances, indices = self.index.search(query_vec, k=k_to_search)
 
         # Format Context
         context_parts = []
         for idx in indices[0]:
-            if idx < len(self.chunks):
+            if idx < len(self.chunks) and idx >= 0:
                 item = self.chunks[idx]
                 # Injection of Metadata for LLM Citation
                 formatted_chunk = f"[Source: '{item['source']}', Page: {item['page']}]\n{item['text']}"
@@ -115,26 +125,31 @@ class ClinicalKnowledgeBase:
         if not os.path.exists(os.path.join(folder_path, "index.faiss")):
             return False
 
-        self.index = faiss.read_index(os.path.join(folder_path, "index.faiss"))
-
-        with open(os.path.join(folder_path, "chunks.pkl"), "rb") as f:
-            self.chunks = pickle.load(f)
-
-        print(f"✅ Index loaded from {folder_path}")
-        return True
+        try:
+            self.index = faiss.read_index(os.path.join(folder_path, "index.faiss"))
+            with open(os.path.join(folder_path, "chunks.pkl"), "rb") as f:
+                self.chunks = pickle.load(f)
+            print(f"✅ Index loaded from {folder_path}")
+            return True
+        except Exception as e:
+            print(f"Failed to load index: {e}")
+            return False
 
     # --- Helper Methods ---
-    def _sliding_window_chunking(self, text: str, window_size=1000, overlap=200) -> list[str]:
+    def _sliding_window_chunking(self, text: str, window_size=1000, overlap=300) -> list[str]:
         """Splits text into overlapping windows to ensure boundary context is kept."""
         text = re.sub(r'\s+', ' ', text).strip()
         chunks = []
         start = 0
         text_len = len(text)
 
+        if text_len <= window_size:
+            return [text]
+
         while start < text_len:
             end = start + window_size
             chunk = text[start:end]
-            if len(chunk) > 50:
+            if len(chunk) > 50:  # Filter out tiny noise chunks
                 chunks.append(chunk)
             start += (window_size - overlap)
         return chunks
