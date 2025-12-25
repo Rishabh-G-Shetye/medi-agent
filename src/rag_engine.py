@@ -108,7 +108,7 @@ class ClinicalKnowledgeBase:
         return "\n\n".join(context_parts)
 
     # --- Persistence: Save/Load ---
-    def save_index(self, folder_path="storage"):
+    def save_index(self, folder_path="storage_v2"):
         """Persists the FAISS index and metadata to disk."""
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
@@ -120,7 +120,7 @@ class ClinicalKnowledgeBase:
             pickle.dump(self.chunks, f)
         print(f"✅ Index saved to {folder_path}")
 
-    def load_index(self, folder_path="storage"):
+    def load_index(self, folder_path="storage_v2"):
         """Loads the FAISS index and metadata from disk."""
         if not os.path.exists(os.path.join(folder_path, "index.faiss")):
             return False
