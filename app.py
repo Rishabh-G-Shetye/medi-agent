@@ -92,41 +92,112 @@ with st.sidebar:
 
 
 # --- Helper: UI Components ---
-def display_source_cards(context_text):
+def display_source_chips(context_text):
     """
-    Renders clean, unique source citations.
-    Limits display to top 3 unique sources to prevent clutter.
+    Renders sources as small, hoverable 'chips' using HTML/CSS.
+    This prevents clutter while keeping the evidence accessible.
     """
-    # Regex to extract source and page metadata from the raw context string
+
+    # CSS for the hoverable chips (Dark/Light mode compatible)
+    tooltip_css = """
+    <style>
+    .source-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+    }
+    .source-chip {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        background-color: rgba(128, 128, 128, 0.1);
+        border: 1px solid rgba(128, 128, 128, 0.2);
+        color: inherit;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        cursor: help;
+        transition: background 0.2s;
+    }
+    .source-chip:hover {
+        background-color: rgba(128, 128, 128, 0.2);
+    }
+    /* Tooltip Text */
+    .source-chip .tooltip-text {
+        visibility: hidden;
+        width: 350px;
+        background-color: #262730;
+        color: #fff;
+        text-align: left;
+        border-radius: 6px;
+        padding: 10px;
+        position: absolute;
+        z-index: 100;
+        bottom: 125%; 
+        left: 50%;
+        margin-left: -175px;
+        opacity: 0;
+        transition: opacity 0.3s;
+        font-size: 0.85rem;
+        line-height: 1.4;
+        box-shadow: 0px 4px 6px rgba(0,0,0,0.3);
+        border: 1px solid #444;
+        white-space: normal;
+    }
+    .source-chip:hover .tooltip-text {
+        visibility: visible;
+        opacity: 1;
+    }
+    </style>
+    """
+    st.markdown(tooltip_css, unsafe_allow_html=True)
+
+    # Regex to extract filename, page, AND the content following it
     pattern = r"\[Source: '(.*?)', Page: (\d+)\]"
-    matches = re.findall(pattern, context_text)
+    parts = re.split(pattern, context_text)
 
-    if not matches:
-        return
+    # Use a dictionary to keep unique sources
+    unique_sources = {}
 
-    # Set to track unique sources we've already displayed
-    unique_sources = set()
-    count = 0
+    # parts[0] is usually empty or intro text.
+    # The regex split creates groups of 3: [text_before, filename, page, text_after...]
+    if len(parts) > 1:
+        for i in range(1, len(parts), 3):
+            if i + 1 < len(parts):
+                filename = parts[i]
+                page = parts[i + 1]
+                # The content is usually in the next part (parts[i+2])
+                content_raw = parts[i + 2] if i + 2 < len(parts) else ""
 
-    st.markdown("### 🔍 Source Verification (Top Matches)")
+                # Clean content: limit to 300 chars for the tooltip & escape HTML
+                clean_content = content_raw.strip()[:400] + "..."
+                clean_content = clean_content.replace('"', '&quot;').replace('<', '&lt;').replace('>', '&gt;')
 
-    # Create columns for a cleaner layout
-    cols = st.columns(3)
+                identifier = f"{filename} (p.{page})"
+                if identifier not in unique_sources:
+                    unique_sources[identifier] = clean_content
 
-    for filename, page_num in matches:
-        # Create a unique identifier key
-        identifier = f"{filename} (Page {page_num})"
+    # Render HTML Chips
+    if unique_sources:
+        html_code = '<div class="source-container">'
 
-        # Only display if unique and we haven't hit the limit of 3
-        if identifier not in unique_sources and count < 3:
-            with cols[count]:
-                st.info(f"**📄 {filename}**\n\n*Page {page_num}*")
+        # Limit to top 3 to keep it clean
+        for i, (source_id, content) in enumerate(unique_sources.items()):
+            if i >= 3: break
 
-            unique_sources.add(identifier)
-            count += 1
+            html_code += f"""
+            <div class="source-chip">
+                📄 {source_id}
+                <span class="tooltip-text"><b>Context:</b><br>{content}</span>
+            </div>
+            """
 
-    if count == 0:
-        st.caption("No specific metadata found in context.")
+        html_code += "</div>"
+
+        # Display "Sources" label (subtle)
+        st.caption("🔍 Sources (Hover for details):")
+        st.markdown(html_code, unsafe_allow_html=True)
 
 
 # --- 3. Chat Interface ---
@@ -162,9 +233,9 @@ if prompt := st.chat_input("Ask a clinical question (e.g., 'Treatment for P. viv
 
                 st.markdown(response)
 
-                # Display Cleaned Sources
+                # Display Cleaned Source Chips (UPDATED CALL)
                 if context:
                     st.divider()
-                    display_source_cards(context)
+                    display_source_chips(context)
 
     st.session_state.messages.append({"role": "assistant", "content": response})
