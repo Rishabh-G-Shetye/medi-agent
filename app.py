@@ -95,10 +95,10 @@ with st.sidebar:
 def display_source_chips(context_text):
     """
     Renders sources as small, hoverable 'chips' using HTML/CSS.
-    This prevents clutter while keeping the evidence accessible.
+    (Fixed: Removes indentation to prevent HTML being rendered as code blocks)
     """
 
-    # CSS for the hoverable chips (Dark/Light mode compatible)
+    # CSS for the hoverable chips
     tooltip_css = """
     <style>
     .source-container {
@@ -111,38 +111,52 @@ def display_source_chips(context_text):
         position: relative;
         display: inline-flex;
         align-items: center;
-        background-color: rgba(128, 128, 128, 0.1);
-        border: 1px solid rgba(128, 128, 128, 0.2);
-        color: inherit;
-        padding: 4px 10px;
-        border-radius: 12px;
-        font-size: 0.8rem;
+        background-color: #f0f2f6;
+        border: 1px solid #d0d2d6;
+        color: #31333F;
+        padding: 4px 12px;
+        border-radius: 16px;
+        font-size: 0.85rem;
         cursor: help;
         transition: background 0.2s;
     }
-    .source-chip:hover {
-        background-color: rgba(128, 128, 128, 0.2);
+    /* Dark mode adjustment */
+    @media (prefers-color-scheme: dark) {
+        .source-chip {
+            background-color: #262730;
+            border: 1px solid #464b5d;
+            color: #fafafa;
+        }
     }
+    .source-chip:hover {
+        background-color: #e0e2e6;
+    }
+    @media (prefers-color-scheme: dark) {
+        .source-chip:hover {
+            background-color: #363945;
+        }
+    }
+
     /* Tooltip Text */
     .source-chip .tooltip-text {
         visibility: hidden;
-        width: 350px;
-        background-color: #262730;
+        width: 300px;
+        background-color: #0e1117;
         color: #fff;
         text-align: left;
         border-radius: 6px;
         padding: 10px;
         position: absolute;
         z-index: 100;
-        bottom: 125%; 
+        bottom: 135%;
         left: 50%;
-        margin-left: -175px;
+        margin-left: -150px;
         opacity: 0;
         transition: opacity 0.3s;
-        font-size: 0.85rem;
+        font-size: 0.8rem;
         line-height: 1.4;
-        box-shadow: 0px 4px 6px rgba(0,0,0,0.3);
-        border: 1px solid #444;
+        box-shadow: 0px 4px 12px rgba(0,0,0,0.5);
+        border: 1px solid #30333f;
         white-space: normal;
     }
     .source-chip:hover .tooltip-text {
@@ -157,48 +171,37 @@ def display_source_chips(context_text):
     pattern = r"\[Source: '(.*?)', Page: (\d+)\]"
     parts = re.split(pattern, context_text)
 
-    # Use a dictionary to keep unique sources
     unique_sources = {}
 
-    # parts[0] is usually empty or intro text.
-    # The regex split creates groups of 3: [text_before, filename, page, text_after...]
     if len(parts) > 1:
         for i in range(1, len(parts), 3):
             if i + 1 < len(parts):
                 filename = parts[i]
                 page = parts[i + 1]
-                # The content is usually in the next part (parts[i+2])
                 content_raw = parts[i + 2] if i + 2 < len(parts) else ""
 
-                # Clean content: limit to 300 chars for the tooltip & escape HTML
+                # Clean content for tooltip
                 clean_content = content_raw.strip()[:400] + "..."
-                clean_content = clean_content.replace('"', '&quot;').replace('<', '&lt;').replace('>', '&gt;')
+                # Escape quotes to prevent HTML breakage
+                clean_content = clean_content.replace('"', '&quot;').replace("'", "&#39;")
 
                 identifier = f"{filename} (p.{page})"
                 if identifier not in unique_sources:
                     unique_sources[identifier] = clean_content
 
-    # Render HTML Chips
     if unique_sources:
+        # --- HTML CONSTRUCTION (Compact to prevent indentation errors) ---
         html_code = '<div class="source-container">'
 
-        # Limit to top 3 to keep it clean
         for i, (source_id, content) in enumerate(unique_sources.items()):
             if i >= 3: break
-
-            html_code += f"""
-            <div class="source-chip">
-                📄 {source_id}
-                <span class="tooltip-text"><b>Context:</b><br>{content}</span>
-            </div>
-            """
+            # IMPORTANT: This f-string is now one line to prevent Markdown code-blocking
+            html_code += f'<div class="source-chip">📄 {source_id}<span class="tooltip-text"><b>Context:</b><br>{content}</span></div>'
 
         html_code += "</div>"
 
-        # Display "Sources" label (subtle)
         st.caption("🔍 Sources (Hover for details):")
         st.markdown(html_code, unsafe_allow_html=True)
-
 
 # --- 3. Chat Interface ---
 # Display History
