@@ -42,22 +42,22 @@ Instead of a single LLM call, Medi-Agent uses a specialized agentic pipeline:
 
 ```mermaid
 graph TD
-    User[User Input] --> Router{Is it Medical?}
+    User["User Input"] --> Router{"Is it Medical?"}
     
     %% Fast Track
-    Router -- No (Greeting) --> Gemma[⚡ Gemma 3-27B]
+    Router -->|No - Greeting| Gemma["⚡ Gemma 3-27B"]
     Gemma --> Response
     
     %% Heavy Track
-    Router -- Yes (Medical) --> RAG[📚 RAG Retrieval]
+    Router -->|Yes - Medical| RAG["📚 RAG Retrieval"]
     RAG --> Context
     
     subgraph "Gemini 3 Reasoning Engine"
-        Context --> Researcher[🕵️ Researcher Agent]
-        Researcher -->|Raw Facts + Citations| Writer[✍️ Writer Agent]
+        Context --> Researcher["🕵️ Researcher Agent"]
+        Researcher -->|"Raw Facts + Citations"| Writer["✍️ Writer Agent"]
         
-        Writer -->|Format: Clinician| Output1[Doctor Summary]
-        Writer -->|Format: Patient| Output2[Empathetic Explanation]
+        Writer -->|"Format: Clinician"| Output1["Doctor Summary"]
+        Writer -->|"Format: Patient"| Output2["Empathetic Explanation"]
     end
     
     Output1 --> Response
