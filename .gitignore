@@ -35,3 +35,5 @@ Thumbs.db
 *.mp4
 *.dll
 *.exe
+
+check_models.py
